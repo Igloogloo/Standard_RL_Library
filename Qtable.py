@@ -71,6 +71,16 @@ class Qtable:
             return np.argmax(self.qtable[state])
         except IndexError:
             print("Index error: No such state.")
+            
+    def random_action(self, state):
+        """
+        Returns a random action to be taken for a given state
+        """
+        try:
+            return np.random.randint(0, self.action_size)
+        except IndexError:
+            print("Index error: No such state.")
+
 
     def optsequence(self):
         """
