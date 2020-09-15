@@ -45,3 +45,6 @@ class Oracle:
                 return -1
             else:
                 return 1
+
+    def get_qval(self, state, action):
+        return self.qtable[state][action]
