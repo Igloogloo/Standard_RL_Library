@@ -71,9 +71,9 @@ def p_good(feedback_tbl, confidence, state, action):
     """
     # The following is a pretty arbitrary way to prevent overflow, it also artificially limits how much feedback
     # affects the agent. Worth changing if you know a better way.
-    if (feedback_tbl[state][action]) > 100:
+    if (feedback_tbl[state][action]) > 50:
         return 1
-    elif (feedback_tbl[state][action]) < -100:
+    elif (feedback_tbl[state][action]) < -50:
         return 0
 
     if confidence == 1:
