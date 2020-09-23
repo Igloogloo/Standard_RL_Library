@@ -3,7 +3,7 @@ import pandas as pd
 import pickle
 
 class Qtable:
-    def __init__(self, state_size, action_size, zeros=True, minqval=None, maxqval=None):
+        def __init__(self, state_size, action_size, zeros=True, minqval=None, maxqval=None, qtable=None):
         """
         If zeros is set to False, then the q-table will be initiated with random values between 0 and 1. If min and
         max values are set, the table is filled with uniform distributed values between the min and max.
@@ -12,17 +12,23 @@ class Qtable:
         self.action_size = action_size
         self.minqval = minqval
         self.maxqval = maxqval
-        if zeros is True:
-            self.qtable = np.zeros((state_size, action_size))
-
-        elif minqval is None and maxqval is None and zeros is False:
-            self.qtable = np.random.random((state_size, action_size))
-
+        if qtable is not None:
+            self.qtable = qtable
         else:
-            self.qtable = np.random.uniform(minqval, maxqval, (state_size, action_size))
+            if zeros is True:
+                self.qtable = np.zeros((state_size, action_size))
+
+            elif minqval is None and maxqval is None and zeros is False:
+                self.qtable = np.random.random((state_size, action_size))
+
+            else:
+                self.qtable = np.random.uniform(minqval, maxqval, (state_size, action_size))
 
     def get_qtable(self):
         return self.qtable
+
+    def set_qtable(self, qtable):
+        self.qtable = qtable
 
     def get_qval(self, state, action):
         """
