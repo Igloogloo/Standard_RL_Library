@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import pickle
 
+
 class Qtable:
-        def __init__(self, state_size, action_size, zeros=True, minqval=None, maxqval=None, qtable=None):
+    def __init__(self, state_size, action_size, zeros=True, minqval=None, maxqval=None, qtable=None):
         """
         If zeros is set to False, then the q-table will be initiated with random values between 0 and 1. If min and
         max values are set, the table is filled with uniform distributed values between the min and max.
@@ -77,7 +78,7 @@ class Qtable:
             return np.argmax(self.qtable[state])
         except IndexError:
             print("Index error: No such state.")
-            
+
     def random_action(self, state):
         """
         Returns a random action to be taken for a given state
@@ -86,7 +87,6 @@ class Qtable:
             return np.random.randint(0, self.action_size)
         except IndexError:
             print("Index error: No such state.")
-
 
     def optsequence(self):
         """
