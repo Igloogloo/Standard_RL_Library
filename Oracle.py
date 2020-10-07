@@ -101,7 +101,7 @@ class TorchOracle:
     # The "state" parameter is the input the oracle will evaluate. The action
     # parameter is the action that was taken by the agent that the oracle 
     # is evaluating against. 
-    # All parameters are assumed to be pytorch tensors.
+    # All parameters are assumed to be pytorch tensors (the action can also be an int).
     def __init__(self, model):
         self.model = model
         model.eval()
@@ -112,10 +112,16 @@ class TorchOracle:
             output = self.model(state)
             optimal_action = torch.argmax(output)
             optimal_action = optimal_action.item()
-            if optimal_action == action.item():
-                return 1
-            else: 
-                return -1
+            try:
+                if optimal_action == action.item():
+                    return 1
+                else: 
+                    return -1
+            except:
+                if optimal_action == action:
+                    return 1
+                else:
+                    return -1
     
     # The following function simulates a human by, given a state and an action already taken , returning binary feedback
     # The ps stands for policy shaping.
@@ -137,12 +143,24 @@ class TorchOracle:
             optimal_action = optimal_action.item()
             print(f'optimal: {optimal_action}, action: {action.item()}')
             if conf > np.random.random():  # If True, oracle will provide feedback optimally
-                if optimal_action == action.item():
-                    return 1
-                else: 
-                    return -1
+                try:
+                    if optimal_action == action.item():
+                        return 1
+                    else: 
+                        return -1
+                except: 
+                    if optimal_action == action:
+                        return 1
+                    else: 
+                        return -1
             else: 
-                if optimal_action == action.item():
-                    return -1
-                else:
-                    return 1
+                try:
+                    if optimal_action == action.item():
+                        return -1
+                    else: 
+                        return 1
+                except: 
+                    if optimal_action == action:
+                        return -1
+                    else: 
+                        return 1
