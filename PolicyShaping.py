@@ -35,15 +35,20 @@ class PolicyShaping:
         if constant is None:
             constant = self.constant
 
+        #print(self.feedback_tbl[state])
         prob_of_actions = []  # Probability distribution over actions in the current.
         for action in range(self.action_size):  # Calculate the probability of each action given the current state.
             p_act = p_action(self.qtable, state, action, constant)
-            p_gd = p_good(self.feedback_tbl, confidence, state, action)
+            #p_gd = p_good(self.feedback_tbl, confidence, state, action)
+            p_gd = ps_probs(self.feedback_tbl[state], confidence, action)
             denominator = 0
             for other_action in range(self.action_size):
                 denominator += (p_action(self.qtable, state, other_action, constant) *
-                                p_good(self.feedback_tbl, confidence, state, other_action))
+                                ps_probs(self.feedback_tbl[state], confidence, other_action))
             prob_of_actions.append(shaped_policy(p_act, p_gd, denominator))
+            # print(prob_of_actions)
+        if np.array_equal(prob_of_actions, np.zeros(len(self.feedback_tbl[state]))):
+            return np.random.randint(0, self.action_size)
         action = int(np.random.choice([i for i in range(self.action_size)], p=prob_of_actions))
         return action
 
@@ -64,6 +69,36 @@ def p_action(qtable, state, action, const):
     return numerator / denominator
 
 
+def ps_probs(feedback_table, confidence, action):
+    """
+       Returns the probability that an action is optimal based off of previous feedback and given the confidence in the
+       feedback.
+    """
+    # The following is a pretty arbitrary way to prevent overflow, it also artificially limits how much feedback
+    # affects the agent. Worth changing if you know a better way.
+    if (feedback_table[action]) > 30:
+        return 1
+    elif (feedback_table[action]) < -30:
+        return 0
+    #if confidence == 1:
+        #confidence == .99999
+    fdbk_probs = []
+    for i, fdbk in enumerate(feedback_table):
+        # sides of the binomial probability calculation
+        left_side = confidence**fdbk
+        right_side_power = 0
+        for j, other_actions in enumerate(feedback_table):
+            if i != j:
+                right_side_power += other_actions
+        right_side = (1-confidence)**right_side_power
+        fdbk_probs.append(left_side*right_side)
+
+    if fdbk_probs[action] > 1:
+        fdbk_probs[action] = 1
+    #print(fdbk_probs[action])
+    return fdbk_probs[action]
+
+# use ps_probs above***
 def p_good(feedback_tbl, confidence, state, action):
     """
     Returns the probability that an action is optimal based off of previous feedback and given the confidence in the
@@ -90,4 +125,8 @@ def shaped_policy(p_action, p_good, denominator):
     :param denominator: The sum over all p_action and p_good for every action in a given state.
     """
 
+    if denominator <= .00001:
+        denominator = .00001
+    if denominator >= 1000:
+        denominator = 1000
     return (p_action * p_good) / denominator
