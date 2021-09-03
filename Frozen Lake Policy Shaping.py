@@ -19,7 +19,7 @@ import PolicyShaping
 #lake = gym.make("FrozenLake-v0", map_name='8x8', is_slippery=False)
 
 # Make enviornment, size 4x4
-lake = gym.make("FrozenLake-v0", is_slippery=False)
+#lake = gym.make("FrozenLake-v0", is_slippery=False)
 
 # How to make a custom map:
 """
@@ -33,94 +33,113 @@ cstm_map = [
 
 lake = gym.make("FrozenLake-v0", desc=cstm_map, is_slippery=False)
 """
+all_rews = []
+for k in range(30):
+    cstm_map = [
+        'FFSFFHH',
+        'FFHFFFH',
+        'FFFHFFF',
+        'FHFFFFF',
+        'GFFHHFG'
+    ]
 
-state_size = lake.observation_space.n
-action_size = lake.action_space.n
-qtable = Qtable.Qtable(state_size, action_size, True)  # Initialize q-table
+    lake = gym.make("FrozenLake-v1", desc=cstm_map, is_slippery=False)
 
-# Initialize oracle
-oracle_qtable_initial = pickle.load(open('q_table_episode_4x4Oracle.pkl', 'rb')).qtable
-oracle = Oracle(oracle_qtable_initial)
-print(oracle.qtable)
+    state_size = lake.observation_space.n
+    action_size = lake.action_space.n
+    qtable = Qtable.Qtable(state_size, action_size, True)  # Initialize q-table
 
-episodes = 100
-max_moves = 30  # Max moves per episode
+    # Initialize oracle
+    oracle_qtable_initial = np.load('custom_oracle.npy')
+    oracle = Oracle(oracle_qtable_initial)
 
-# q-learning parameters
-learning = .8
-discount = .99
-exploration_rate = .001
-min_exploration = .01
-exploration_decay = .001
+    episodes = 100
+    max_moves = 30  # Max moves per episode
 
-# policy shaping parameters:
-confidence = .9  # confidence that feedback is optimal
-likelihood = .9  # likelihood feedback is provided
-const = 0.3  # constant used in probability of action equation
-feedback_tbl = np.zeros((state_size, action_size))  # Table keeping track of feedback
+    # q-learning parameters
+    learning = .8
+    discount = .99
+    exploration_rate = .001
+    min_exploration = .01
+    exploration_decay = .001
 
-policy_shaping = PolicyShaping.PolicyShaping(qtable.qtable, feedback_tbl, confidence, const)
+    # policy shaping parameters:
+    confidence = .9  # confidence that feedback is optimal
+    likelihood = .9  # likelihood feedback is provided
+    const = 0.3  # constant used in probability of action equation
+    feedback_tbl = np.zeros((state_size, action_size))  # Table keeping track of feedback
 
-rewards = []
-num_moves = []
+    policy_shaping = PolicyShaping.PolicyShaping(qtable.qtable, feedback_tbl, confidence, const)
 
-for episode in range(episodes):
-    state = lake.reset()
-    done = False
-    curr_reward = 0
-    num_moves.append(0)
+    rewards = []
+    num_moves = []
+    safe_states = [0,1,2,7,11,14,19,26,27]
 
-    for move in range(max_moves):
-        # This epsilon-greedy approach in PS with QL is analogous to the original papers, exploration rate is
-        # a const depending on the env. they used.
-        if np.random.random() > exploration_rate:
-            action = policy_shaping.get_shaped_action(state)
-        else:
-            action = lake.action_space.sample()
+    for episode in range(episodes):
+        state = lake.reset()
+        done = False
+        curr_reward = 0
+        num_moves.append(0)
 
-        num_moves[episode] += 1
-        next_state, reward, done, info = lake.step(action)
+        for move in range(max_moves):
+            # This epsilon-greedy approach in PS with QL is analogous to the original papers, exploration rate is
+            # a const depending on the env. they used.
+            if np.random.random() > exploration_rate:
+                action = policy_shaping.get_shaped_action(state)
+            else:
+                action = lake.action_space.sample()
+
+            num_moves[episode] += 1
+            next_state, reward, done, info = lake.step(action)
+
+            """
+            if reward == 0 and done is True:  # Modifying frozen lake so falling in a hole gives - 1 reward instead of 0.
+                reward = -1
+            """
+
+            # Get feedback and update feedback table:
+            feedback = oracle.get_binary_feedback_ps(state, action, likelihood, confidence)
+            #if np.random.random() < .8:
+            if not state in safe_states:
+                feedback_tbl[state][action] += feedback
+            else:
+                if np.random.random() < .6:
+                    feedback_tbl[state][action] += feedback
+                else:
+                    feedback_tbl[state][action] -= feedback
+
+            # Q-value update formula
+            qtable.qtable[state][action] = (1 - learning) * qtable.qtable[state][action] + learning * \
+                                           (reward + discount * qtable.maxq(next_state))
+
+            # Update policy shaping object
+            policy_shaping.update_qtable(qtable.qtable)
+            policy_shaping.update_feedback_tbl(feedback_tbl)
+
+            state = next_state
+            curr_reward += reward
+
+            if done:
+                break
+
+        rewards.append(curr_reward)
 
         """
-        if reward == 0 and done is True:  # Modifying frozen lake so falling in a hole gives - 1 reward instead of 0.
-            reward = -1
+        # Exponential decay of exploration rate:
+        exploration_rate = min_exploration + (1 - min_exploration) * np.exp(-exploration_decay * episode)
         """
 
-        # Get feedback and update feedback table:
-        feedback = oracle.get_binary_feedback_ps(state, action, likelihood, confidence)
-        feedback_tbl[state][action] += feedback
+    # print(qtable.qtable)
 
-        # Q-value update formula
-        qtable.qtable[state][action] = (1 - learning) * qtable.qtable[state][action] + learning * \
-                                       (reward + discount * qtable.maxq(next_state))
+    rewards_per_thosand_episodes = np.split(np.array(rewards), episodes / 10)
+    count = 10
+    avg = []
+    for r in rewards_per_thosand_episodes:
+        avg_reward = sum(r / 10)
+        print(count, ": ", str(avg_reward))
+        avg.append(avg_reward)
+        count += 10
+    all_rews.append(avg)
 
-        # Update policy shaping object
-        policy_shaping.update_qtable(qtable.qtable)
-        policy_shaping.update_feedback_tbl(feedback_tbl)
-
-        state = next_state
-        curr_reward += reward
-
-        if done:
-            break
-
-    rewards.append(curr_reward)
-
-    """
-    # Exponential decay of exploration rate:
-    exploration_rate = min_exploration + (1 - min_exploration) * np.exp(-exploration_decay * episode)
-    """
-
-# print(qtable.qtable)
-
-rewards_per_thosand_episodes = np.split(np.array(rewards), episodes / 10)
-count = 10
-avg = []
-for r in rewards_per_thosand_episodes:
-    avg_reward = sum(r / 10)
-    print(count, ": ", str(avg_reward))
-    avg.append(avg_reward)
-    count += 10
-
-plt.plot(avg)
+plt.plot(np.mean(all_rews, axis=0))
 plt.show()

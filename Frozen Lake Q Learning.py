@@ -19,7 +19,7 @@ from PolicyShaping import p_action
 #lake = gym.make("FrozenLake-v0", map_name='8x8', is_slippery=False)
 
 # Make enviornment, size 4x4
-lake = gym.make("FrozenLake-v0", is_slippery=True)
+#lake = gym.make("FrozenLake-v1", is_slippery=True)
 
 # How to make a custom map:
 """
@@ -33,7 +33,15 @@ cstm_map = [
 
 lake = gym.make("FrozenLake-v0", desc=cstm_map, is_slippery=False)
 """
+cstm_map = [
+    'FFSFFHH',
+    'FFHFFFH',
+    'FFFHFFF',
+    'FHFFFFF',
+    'GFFHHFG'
+]
 
+lake = gym.make("FrozenLake-v1", desc=cstm_map, is_slippery=False)
 state_size = lake.observation_space.n
 action_size = lake.action_space.n
 qtable = Qtable.Qtable(state_size, action_size, True)  # Initialize qtable
@@ -119,6 +127,7 @@ for r in rewards_per_thosand_episodes:
 
 episodes = np.arange(0, 10000, 1000)
 
+np.save("custom_oracle", qtable.qtable)
 # Plot average rewards
 plt.plot(episodes, avg_rewards)
 plt.show()
